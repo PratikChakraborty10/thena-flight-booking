@@ -1,0 +1,11 @@
+id,code,name,city,country
+1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d,JFK,John F. Kennedy International Airport,New York,United States
+2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e,LAX,Los Angeles International Airport,Los Angeles,United States
+3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f,ORD,O'Hare International Airport,Chicago,United States
+4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a,ATL,Hartsfield-Jackson Atlanta International Airport,Atlanta,United States
+5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b,SFO,San Francisco International Airport,San Francisco,United States
+6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c,DFW,Dallas/Fort Worth International Airport,Dallas,United States
+7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d,MIA,Miami International Airport,Miami,United States
+8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e,LHR,Heathrow Airport,London,United Kingdom
+9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f,CDG,Charles de Gaulle Airport,Paris,France
+0d1e2f3a-4b5c-6d7e-8f9a-0b1c2d3e4f5a,DXB,Dubai International Airport,Dubai,United Arab Emirates

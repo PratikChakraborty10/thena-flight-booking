@@ -341,7 +341,7 @@ function FlightCard({
           </div>
 
           <div className="mt-4 md:mt-0 flex flex-col items-end">
-            <p className="font-bold text-xl">${flight.price}</p>
+            <p className="font-bold text-xl">₹{flight.price}</p>
             <p className="text-xs text-muted-foreground">per passenger</p>
             <Button
               variant={isSelected ? "default" : "outline"}

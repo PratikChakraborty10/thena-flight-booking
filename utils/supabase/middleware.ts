@@ -1,7 +1,10 @@
-import { createServerClient } from "@supabase/ssr"
-import { NextResponse, type NextRequest } from "next/server"
+// utils/supabase/middleware.ts
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
+  // Create a response to modify
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -13,50 +16,32 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name) {
+        get(name: string) {
           return request.cookies.get(name)?.value
         },
-        set(name, value, options) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
+        set(name: string, value: string, options: { path: string; maxAge: number; domain?: string }) {
+          // This is called when the auth state changes to set new cookies
           response.cookies.set({
             name,
             value,
             ...options,
           })
         },
-        remove(name, options) {
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
+        remove(name: string, options: { path: string; domain?: string }) {
+          // This is called when cookies should be removed
           response.cookies.set({
             name,
-            value: "",
+            value: '',
             ...options,
+            maxAge: 0,
           })
         },
       },
-    },
+    }
   )
 
-  // This will refresh the user's session if needed
-  await supabase.auth.getUser()
+  // Refresh the session if it exists
+  await supabase.auth.getSession()
 
   return response
 }
-

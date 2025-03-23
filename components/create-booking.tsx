@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { format, parseISO } from "date-fns"
-import { ArrowRight, Ticket, CheckCircle2, X, CreditCard, AlertTriangle } from "lucide-react"
+import { ArrowRight, Ticket, CheckCircle2, X, CreditCard, AlertTriangle, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +13,11 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getFlightDetails, checkSeatAvailability, type FlightDetails } from "@/helpers/api/check-flight-details"
+import { createBooking } from "@/helpers/api/booking-service"
+import { PaymentProcessingModal } from "@/components/payment-processing-modal"
+import { toast } from "sonner"
 import useFetch from "@/hooks/use-fetch"
+import { useAuth } from "@/contexts/auth-context"
 
 // Define coupon type
 interface Coupon {
@@ -36,6 +40,13 @@ interface Passenger {
 function BookingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user, isLoading: authLoading } = useAuth()
+
+  // Payment and booking states
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
+  const [bookingInProgress, setBookingInProgress] = useState(false)
+  const [bookingComplete, setBookingComplete] = useState(false)
+  const [bookingReference, setBookingReference] = useState("")
 
   // Passenger counts from URL
   const adultsCount = Number.parseInt(searchParams.get("adults") || "1")
@@ -45,7 +56,7 @@ function BookingContent() {
 
   // State for passengers
   const [passengers, setPassengers] = useState<Passenger[]>([])
-  
+
   // State for price change tracking
   const [priceChanged, setPriceChanged] = useState(false)
   const [priceChangeType, setPriceChangeType] = useState("increased")
@@ -55,27 +66,25 @@ function BookingContent() {
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null)
   const [couponCode, setCouponCode] = useState("")
   const [couponError, setCouponError] = useState("")
-  
+
   // Track if initial data fetch is complete
   const [initialFetchDone, setInitialFetchDone] = useState(false)
 
   // Using useFetch hook for getFlightDetails API call
-  const { 
-    data: flight, 
-    loading: flightLoading, 
+  const {
+    data: flight,
+    loading: flightLoading,
     error: flightError,
-    fn: fetchFlightDetails 
-  } = useFetch<FlightDetails>((options, flightId: string, cabinClass: string) => 
-    getFlightDetails(flightId, cabinClass)
-  )
+    fn: fetchFlightDetails,
+  } = useFetch<FlightDetails>((options, flightId: string, cabinClass: string) => getFlightDetails(flightId, cabinClass))
 
   // Using useFetch hook for checkSeatAvailability API call
   const {
     data: seatAvailabilityData,
     loading: seatAvailabilityLoading,
-    fn: checkAvailability
+    fn: checkAvailability,
   } = useFetch<boolean>((options, flightId: string, cabinClass: string, passengerCount: number) =>
-    checkSeatAvailability(flightId, cabinClass, passengerCount)
+    checkSeatAvailability(flightId, cabinClass, passengerCount),
   )
 
   // Available coupons
@@ -108,8 +117,8 @@ function BookingContent() {
   // Fetch flight details and check seat availability only once when component mounts
   useEffect(() => {
     // Skip if we've already done the initial fetch
-    if (initialFetchDone) return;
-    
+    if (initialFetchDone) return
+
     const flightId = searchParams.get("flightId")
     const cabinClass = searchParams.get("cabinClass") || "economy"
 
@@ -118,20 +127,14 @@ function BookingContent() {
       checkAvailability(flightId, cabinClass, totalPassengers)
       setInitialFetchDone(true)
     }
-  }, [
-    searchParams, 
-    fetchFlightDetails, 
-    checkAvailability, 
-    totalPassengers, 
-    initialFetchDone
-  ])
+  }, [searchParams, fetchFlightDetails, checkAvailability, totalPassengers, initialFetchDone])
 
   // Check for live price change - only runs when flight data changes
   useEffect(() => {
     if (flight) {
       // Get the original price from query params
       const originalPrice = Number(searchParams.get("price") || "0")
-      
+
       // If we have both prices and they're different
       if (originalPrice > 0 && originalPrice !== flight.price) {
         // Calculate the difference
@@ -185,7 +188,7 @@ function BookingContent() {
       total = total * (1 - appliedCoupon.discount / 100)
     }
 
-    return total.toFixed(2)
+    return total
   }
 
   // Format date and time
@@ -209,36 +212,104 @@ function BookingContent() {
     )
   }
 
+  // Handle payment success
+  const handlePaymentSuccess = async () => {
+    try {
+      if (!user) {
+        toast.error("Authentication Error", {
+          description: "You must be logged in to complete a booking",
+        })
+        return
+      }
+
+      setBookingInProgress(true)
+
+      // Create the booking in Supabase
+      const totalPrice = calculateTotalPrice()
+      const result = await createBooking(user.id, flight, passengers, totalPrice)
+
+      if (result.success) {
+        setBookingComplete(true)
+        setBookingReference(result.data.booking_reference)
+
+        toast.success("Booking Confirmed!", {
+          description: `Your booking reference is ${result.data.booking_reference}`,
+        })
+
+        // Redirect to booking confirmation page after a short delay
+        setTimeout(() => {
+          router.push(`/bookings/${result.data.id}?success=true`)
+        }, 2000)
+      } else {
+        toast.error("Booking Failed", {
+          description: "There was an error creating your booking. Please try again.",
+        })
+      }
+    } catch (error) {
+      console.error("Error creating booking:", error)
+      toast.error("Booking Failed", {
+        description: "There was an error creating your booking. Please try again.",
+      })
+    } finally {
+      setBookingInProgress(false)
+      setIsPaymentModalOpen(false)
+    }
+  }
+
+  // Handle payment error
+  const handlePaymentError = () => {
+    toast.error("Payment Failed", {
+      description: "Your payment could not be processed. Please try again.",
+    })
+    setIsPaymentModalOpen(false)
+  }
+
   // Handle booking submission
-  const handleBooking = () => {
+  const handleBooking = async () => {
     if (!isFormValid()) {
-      alert("Please fill in all required passenger details")
+      toast.error("Missing Information", {
+        description: "Please fill in all required passenger details",
+      })
       return
     }
 
     if (!seatAvailabilityData) {
-      alert("Not enough seats available for this booking")
+      toast.error("Booking Error", {
+        description: "Not enough seats available for this booking",
+      })
       return
     }
 
-    // In a real app, you would submit the booking data to your backend
-    alert("Booking submitted successfully! (This is just a simulation)")
+    if (authLoading) {
+      toast("Please wait", {
+        description: "Checking your account information...",
+      })
+      return
+    }
 
-    // Navigate to a confirmation page or back to home
-    // router.push("/");
+    if (!user) {
+      toast.error("Authentication Required", {
+        description: "Please log in to complete your booking",
+      })
+      return
+    }
+
+    // Open payment modal to start payment simulation
+    setIsPaymentModalOpen(true)
   }
 
   // Check for loading state from both flight_inventory and flight tables
-  const isLoading = flightLoading || seatAvailabilityLoading
+  const isLoading = flightLoading || seatAvailabilityLoading || authLoading
 
   // Show loading state first
   if (isLoading) {
     return (
-      <div className="container max-w-5xl mx-auto p-4 flex justify-center items-center min-h-[50vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-lg">Loading flight details...</p>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-500 mb-4" />
+        <h2 className="text-2xl font-semibold text-center">Loading your flight details</h2>
+        <p className="text-muted-foreground text-center mt-2">
+          This typically takes 5s to load the data. If taking more time please clear the cookies and retry
+        </p>
       </div>
     )
   }
@@ -259,6 +330,32 @@ function BookingContent() {
     )
   }
 
+  // Show booking success state
+  if (bookingComplete) {
+    return (
+      <div className="container max-w-5xl mx-auto p-4">
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-6">
+            <CheckCircle2 className="w-10 h-10 text-green-600" />
+          </div>
+          <h1 className="text-3xl font-bold mb-2">Booking Confirmed!</h1>
+          <p className="text-lg text-muted-foreground mb-6">
+            Your booking reference is <span className="font-bold">{bookingReference}</span>
+          </p>
+          <p className="text-center max-w-md mb-8">
+            We've sent the booking details to your email. You can also view your booking in your account.
+          </p>
+          <div className="flex gap-4">
+            <Button onClick={() => router.push("/bookings")}>View My Bookings</Button>
+            <Button variant="outline" onClick={() => router.push("/")}>
+              Return to Home
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container max-w-5xl mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6">Complete Your Booking</h1>
@@ -266,10 +363,11 @@ function BookingContent() {
       {/* Flight Details Section */}
       <div className="mb-8">
         {priceChanged && (
-          <Alert variant={priceChangeType === "increased" ? 'destructive' : 'success'} className="mt-4">
+          <Alert variant={priceChangeType === "increased" ? "destructive" : "success"} className="mt-4">
             <AlertTriangle className="h-4 w-4 mr-2" />
             <AlertDescription>
-              {priceChangeType === "increased" ? 'Oops!' : 'Congratulations!'} Price {priceChangeType} by ₹{priceChangeAmount}
+              {priceChangeType === "increased" ? "Oops!" : "Congratulations!"} Price {priceChangeType} by ₹
+              {priceChangeAmount}
             </AlertDescription>
           </Alert>
         )}
@@ -289,7 +387,7 @@ function BookingContent() {
                 <div className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded overflow-hidden mr-4">
                   {flight?.airlineLogo ? (
                     <img
-                      src={flight?.airlineLogo}
+                      src={flight?.airlineLogo || "/placeholder.svg"}
                       alt={flight?.airline}
                       className="object-cover"
                     />
@@ -346,12 +444,8 @@ function BookingContent() {
         {passengers.map((passenger, index) => (
           <Card key={passenger.id} className="mb-4">
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">
-                Adult {index + 1}
-              </CardTitle>
-              <CardDescription>
-                Age 12+
-              </CardDescription>
+              <CardTitle className="text-lg">Adult {index + 1}</CardTitle>
+              <CardDescription>Age 12+</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -505,7 +599,7 @@ function BookingContent() {
 
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>₹{calculateTotalPrice()}</span>
+                <span>₹{calculateTotalPrice().toFixed(2)}</span>
               </div>
 
               {appliedCoupon && (
@@ -527,7 +621,7 @@ function BookingContent() {
 
                   <div className="flex justify-between font-bold">
                     <span>Total</span>
-                    <span>₹{calculateTotalPrice()}</span>
+                    <span>₹{calculateTotalPrice().toFixed(2)}</span>
                   </div>
                 </>
               )}
@@ -542,12 +636,30 @@ function BookingContent() {
           size="lg"
           className="bg-blue-500 hover:bg-blue-600"
           onClick={handleBooking}
-          disabled={!isFormValid() || !seatAvailabilityData}
+          disabled={!isFormValid() || !seatAvailabilityData || bookingInProgress}
         >
-          <CreditCard className="mr-2 h-4 w-4" />
-          Complete Booking
+          {bookingInProgress ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <CreditCard className="mr-2 h-4 w-4" />
+              Complete Booking
+            </>
+          )}
         </Button>
       </div>
+
+      {/* Payment Processing Modal */}
+      <PaymentProcessingModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        onSuccess={handlePaymentSuccess}
+        onError={handlePaymentError}
+        amount={calculateTotalPrice()}
+      />
     </div>
   )
 }
@@ -555,15 +667,18 @@ function BookingContent() {
 // Main component with suspense boundary
 export default function CreateFlightBooking() {
   return (
-    <Suspense fallback={
-      <div className="container max-w-5xl mx-auto p-4 flex justify-center items-center min-h-[50vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-lg">Loading booking details...</p>
+    <Suspense
+      fallback={
+        <div className="container max-w-5xl mx-auto p-4 flex justify-center items-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-lg">Loading booking details...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <BookingContent />
     </Suspense>
   )
 }
+

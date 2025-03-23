@@ -23,6 +23,7 @@ export default function ProfilePage() {
 
     if (user?.name) {
       setName(user.name)
+      console.log("user::", user)
     }
   }, [user, isLoading, router])
 

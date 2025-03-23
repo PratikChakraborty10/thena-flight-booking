@@ -29,12 +29,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} h-[100svh] w-full antialiased`}
       >
-        <AuthProvider>
+        
           <Navbar />
-          <main className="h-full w-full pt-16">
-            {children}
+          <main className="h-full w-full pt-14">
+            <AuthProvider>{children}</AuthProvider>
           </main>
-          </AuthProvider>
       </body>
     </html>
   );

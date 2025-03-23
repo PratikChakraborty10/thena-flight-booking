@@ -1,4 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+// middleware.ts
+import { createServerClient } from "@supabase/ssr"
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { updateSession } from "@/utils/supabase/middleware"
 
 // Define protected routes that require authentication
@@ -6,49 +9,60 @@ const protectedRoutes = ["/dashboard", "/bookings", "/profile", "/create-booking
 const authRoutes = ["/login", "/signup"]
 
 export async function middleware(request: NextRequest) {
-  // Update the session first
-  const response = await updateSession(request)
+  try {
+    // Update the session first
+    const response = await updateSession(request)
 
-  const { pathname } = request.nextUrl
+    const { pathname } = request.nextUrl
 
-  // Get the user from the session
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name) {
-          return request.cookies.get(name)?.value
+    // Get the user from the session
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name) {
+            return request.cookies.get(name)?.value
+          },
+          set(name, value, options) {
+            // We're only reading cookies in middleware, not setting them
+            // This method still needs to be defined for the type
+          },
+          remove(name, options) {
+            // We're only reading cookies in middleware, not removing them
+            // This method still needs to be defined for the type
+          },
         },
-        set() {},
-        remove() {},
-      },
-    },
-  )
+      }
+    )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  // If the user is not authenticated and trying to access a protected route
-  if (!user && protectedRoutes.some((route) => pathname.startsWith(route))) {
-    const redirectUrl = new URL("/login", request.url)
-    // Preserve existing query parameters
-    const currentSearchParams = new URLSearchParams(request.nextUrl.search)
-    currentSearchParams.forEach((value, key) => {
-      redirectUrl.searchParams.set(key, value)
-    })
-    // Add the redirect parameter
-    redirectUrl.searchParams.set("redirect", pathname)
-    return NextResponse.redirect(redirectUrl)
+    // If the user is not authenticated and trying to access a protected route
+    if (!user && protectedRoutes.some((route) => pathname.startsWith(route))) {
+      const redirectUrl = new URL("/login", request.url)
+      // Preserve existing query parameters
+      const currentSearchParams = new URLSearchParams(request.nextUrl.search)
+      currentSearchParams.forEach((value, key) => {
+        redirectUrl.searchParams.set(key, value)
+      })
+      // Add the redirect parameter
+      redirectUrl.searchParams.set("redirect", pathname)
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    // If the user is authenticated and trying to access auth routes
+    if (user && authRoutes.includes(pathname)) {
+      return NextResponse.redirect(new URL("/", request.url))
+    }
+
+    return response
+  } catch (error) {
+    console.error("Middleware error:", error)
+    return NextResponse.next() // Continue the request chain even if middleware fails
   }
-
-  // If the user is authenticated and trying to access auth routes
-  if (user && authRoutes.includes(pathname)) {
-    return NextResponse.redirect(new URL("/", request.url))
-  }
-
-  return response
 }
 
 export const config = {
@@ -62,7 +76,3 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }
-
-// Helper function to create a server client
-import { createServerClient } from "@supabase/ssr"
-

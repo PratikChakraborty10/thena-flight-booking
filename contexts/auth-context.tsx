@@ -1,7 +1,7 @@
+// auth-context.tsx
 "use client"
 
 import type React from "react"
-
 import { createContext, useContext, useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
@@ -42,11 +42,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true)
 
       try {
-        // Get user
+        // Check if there's an existing session
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        // Get user from the session or directly
         const {
           data: { user },
           error: userError,
-        } = await supabase.auth.getUser()
+        } = session 
+          ? { data: { user: session.user }, error: null } 
+          : await supabase.auth.getUser()
 
         if (userError) {
           console.error("Error getting user:", userError)
@@ -58,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser({
             id: user.id,
             email: user.email!,
-            name: null,
+            name: user.user_metadata?.name || null,
           })
 
           // Get user profile
@@ -95,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           id: session.user.id,
           email: session.user.email!,
-          name: null,
+          name: session.user.user_metadata?.name || null,
         })
 
         // Get user profile
@@ -109,12 +114,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(profileData)
           setUser((prev) => (prev ? { ...prev, name: profileData.name } : null))
         }
+        
+        router.refresh()
       } else {
         setUser(null)
         setProfile(null)
+        router.refresh()
       }
-
-      router.refresh()
     })
 
     return () => {
@@ -122,31 +128,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase, router])
 
-  // const signUp = async (email: string, password: string, name: string) => {
-  //   try {
-  //     const { data, error } = await supabase.auth.signUp({
-  //       email,
-  //       password,
-  //     })
-
-  //     if (error) throw error
-
-  //     if (data.user) {
-  //       // Create user profile
-  //       const { error: profileError } = await supabase.from("user_profiles").insert({
-  //         user_id: data.user.id,
-  //         name,
-  //       })
-
-  //       if (profileError) throw profileError
-  //     }
-
-  //     router.push("/login?message=Check your email to confirm your account")
-  //   } catch (error) {
-  //     console.error("Error signing up:", error)
-  //     throw error
-  //   }
-  // }
   const signUp = async (email: string, password: string, name: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -161,12 +142,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
       if (error) throw error;
   
-      router.push("/login?message=Check your email to confirm your account");
+      // Create user profile - this might need to be done in a server-side function after email confirmation
+      if (data.user) {
+        try {
+          const { error: profileError } = await supabase.from("user_profiles").insert({
+            user_id: data.user.id,
+            name,
+          })
+          
+          if (profileError) console.error("Error creating profile:", profileError)
+        } catch (profileError) {
+          console.error("Error creating profile:", profileError)
+        }
+      }
+      
+      router.push("/login?message=Check your email to confirm your account")
     } catch (error) {
-      console.error("Error signing up:", error);
-      throw error;
+      console.error("Error signing up:", error)
+      throw error
     }
-  };
+  }
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -226,4 +221,3 @@ export function useAuth() {
 
   return context
 }
-

@@ -32,7 +32,7 @@ const Navbar = () => {
   };
 
   return (
-    <header className="p-4 w-full bg-white/80 border-b border-gray-200 z-50 fixed top-0">
+    <header className="p-4 w-full bg-white border-b border-gray-200 z-50 fixed top-0">
       <div className="w-full mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-1">
           <Plane className="h-6 w-6 text-sky-600" />

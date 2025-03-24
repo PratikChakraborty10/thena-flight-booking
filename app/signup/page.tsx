@@ -23,7 +23,7 @@ export default function SignupPage() {
 
     try {
       await signUp(email, password, name)
-      router.push("/login?message=Check your email to confirm your account")
+      router.push("/login?message=Check your email to confirm your account. Please check the SPAM Folder")
     } catch (error: any) {
       setError(error.message || "An error occurred during signup")
     } finally {

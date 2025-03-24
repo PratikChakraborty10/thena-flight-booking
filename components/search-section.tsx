@@ -197,7 +197,7 @@ function SearchFlightContent() {
                   <div>
                     <h3 className="font-semibold">Selected Flights</h3>
                     <p className="text-muted-foreground">
-                      Total Price: <span className="font-bold text-lg">${calculateTotalPrice()}</span>
+                      Total Price: <span className="font-bold text-lg">₹{calculateTotalPrice()}</span>
                     </p>
                   </div>
                   <Button

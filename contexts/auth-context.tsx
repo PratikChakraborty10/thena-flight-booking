@@ -1,4 +1,3 @@
-// auth-context.tsx
 "use client"
 
 import type React from "react"
@@ -156,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
       
-      router.push("/login?message=Check your email to confirm your account")
+      router.push("/login?message=Check your email to confirm your account. Please check the SPAM Folder")
     } catch (error) {
       console.error("Error signing up:", error)
       throw error

@@ -3,10 +3,11 @@
 import { Suspense, useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 
-// Create a separate component for the actual confirmation logic
 function EmailConfirmation() {
+  const { signOut } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
@@ -36,9 +37,9 @@ function EmailConfirmation() {
           setError(error.message)
         } else {
           setSuccess(true)
-          // Redirect to dashboard after 3 seconds
+          signOut();
           setTimeout(() => {
-            router.push("/dashboard")
+            router.push("/")
           }, 3000)
         }
       } catch (err) {

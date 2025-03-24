@@ -1,9 +1,9 @@
 import React from 'react'
 
-const BookingPage = () => {
+const BookingsPage = () => {
   return (
     <div>BookingPage</div>
   )
 }
 
-export default BookingPage
+export default BookingsPage

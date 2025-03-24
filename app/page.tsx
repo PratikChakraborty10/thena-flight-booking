@@ -1,4 +1,4 @@
-import BookingSection from "@/components/booking-section";
+import BookingSection from "@/components/booking-details";
 
 export default function Home() {
   return (

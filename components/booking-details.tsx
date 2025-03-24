@@ -68,17 +68,16 @@ const BookingSection: React.FC = () => {
     error,
     fn: loadAirports,
   } = useFetch(fetchAirports, {
-    orderBy: "name", // Optional sort parameter
+    orderBy: "name", 
   })
 
   // Validate form whenever relevant fields change
   useEffect(() => {
     const requiredFieldsValid = Boolean(formData.originCode && formData.destinationCode && formData.departDate)
 
-    // For round trips, also check return date
-    const roundTripValid = formData.tripType === "roundtrip" ? Boolean(formData.returnDate) : true
+    // const roundTripValid = formData.tripType === "roundtrip" ? Boolean(formData.returnDate) : true
 
-    setIsFormValid(requiredFieldsValid && roundTripValid)
+    setIsFormValid(requiredFieldsValid)
   }, [formData.originCode, formData.destinationCode, formData.departDate, formData.returnDate, formData.tripType])
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -87,8 +86,8 @@ const BookingSection: React.FC = () => {
     // Create query parameters
     const queryParams = new URLSearchParams()
     queryParams.append("tripType", formData.tripType)
-    queryParams.append("origin", formData.originCode) // Only send airport code
-    queryParams.append("destination", formData.destinationCode) // Only send airport code
+    queryParams.append("origin", formData.originCode) 
+    queryParams.append("destination", formData.destinationCode)
 
     if (formData.departDate) {
       queryParams.append("departDate", format(formData.departDate, "yyyy-MM-dd"))
@@ -159,7 +158,7 @@ const BookingSection: React.FC = () => {
               </PopoverTrigger>
               <PopoverContent className="w-full p-0" align="start">
                 <Command>
-                  <CommandInput placeholder="Search airport..." />
+                  <CommandInput placeholder="Search airport..." className="w-full truncate" />
                   <CommandList>
                     <CommandEmpty>No airport found.</CommandEmpty>
                     <CommandGroup className="max-h-64 overflow-auto">
@@ -176,6 +175,7 @@ const BookingSection: React.FC = () => {
                               })
                               setOriginOpen(false)
                             }}
+                            className="overflow-hidden text-ellipsis whitespace-nowrap"
                           >
                             {airport.name} ({airport.code})
                           </CommandItem>

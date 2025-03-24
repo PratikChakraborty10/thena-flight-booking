@@ -1,4 +1,3 @@
-// utils/supabase/client.ts
 import { createBrowserClient } from '@supabase/ssr'
 
 let supabaseClient: ReturnType<typeof createBrowserClient> | null = null

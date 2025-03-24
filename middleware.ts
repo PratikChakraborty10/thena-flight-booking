@@ -1,4 +1,3 @@
-// middleware.ts
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
@@ -25,12 +24,10 @@ export async function middleware(request: NextRequest) {
             return request.cookies.get(name)?.value
           },
           set(name, value, options) {
-            // We're only reading cookies in middleware, not setting them
-            // This method still needs to be defined for the type
+            
           },
           remove(name, options) {
-            // We're only reading cookies in middleware, not removing them
-            // This method still needs to be defined for the type
+            
           },
         },
       }
